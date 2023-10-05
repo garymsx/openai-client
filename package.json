@@ -1,0 +1,44 @@
+{
+  "name": "typescript-cli-template",
+  "version": "1.0.0",
+  "description": "",
+  "bin": {
+    "oac": "./out/index.js"
+  },
+  "exports": "./src/index.ts",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsc --build tsconfig.json & node ./out/index.js",
+    "build": "npm install & tsc --build tsconfig.json & npm install -g",
+    "uninstall": "npm uninstall -g",
+    "test": "jest"
+  },
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": "^12.20.0 || ^14.13.1 || >=16.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.5",
+    "@types/js-yaml": "^4.0.6",
+    "@types/node": "^20.7.1",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "js-yaml": "^4.1.0",
+    "openai": "^4.11.1"
+  },
+  "roots": [
+    "./src"
+  ],
+  "jest": {
+    "roots": [
+      "./src"
+    ],
+    "preset": "ts-jest"
+  }
+}
