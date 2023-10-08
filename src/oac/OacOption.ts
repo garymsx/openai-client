@@ -1,7 +1,9 @@
+import { OacEnv } from "./OacEnv";
+
 export enum OacCommand {
     Clear = "clear",
     Save = "save",
-    Template = "tm",
+    Prompt = "prompt",
     Chat = "chat",
     Finetuning = "ft",
 }
@@ -14,6 +16,19 @@ export class OacOption {
     silent:boolean = false;
     message:string | undefined;
     savePath:string | undefined;
+    prompt:string | undefined;
+    params:string[] = [];
+    resultPath:string | undefined;
+    input:string | undefined;
+    output:string | undefined;
+
+    constructor() {
+        const env = new OacEnv();
+        // modelとtemperatureは環境変数からデフォルトを取得
+        this.model = env.openaiModel;
+        this.temperature = env.chatTemperature
+        this.resultPath = env.resultPath
+    }
 }
 
 

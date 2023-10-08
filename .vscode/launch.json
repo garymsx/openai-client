@@ -13,10 +13,15 @@
             ],
             "program": "${workspaceFolder}/src/index.ts",
             "args": [
-                "chat",
-                "おはよう",
+                // "chat",
+                // "おはよう",
+                "prompt",
+                // "entity",
+                // "./sample/address.ddl",
+                "trans",
+                "--input=README.md",
+                "--output=./en/README.md",
                 "--debug",
-                "--silent",
             ],
             "preLaunchTask": "build",
             "outFiles": [

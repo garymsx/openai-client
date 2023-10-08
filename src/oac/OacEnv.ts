@@ -10,24 +10,26 @@ export class OacEnv {
     chatHistoryFile:string;
     chatSystemRole:string;
     chatTemperature:number = 0.3;
+    resultPath:string;
 
     constructor() {
         // \を/に置換、最後の/を削除を付けたうえで"/"を付ける
         this.rootDir = path.join(__dirname, "../../")
                     .replace(/\\/g, "/")
-                    .replace(/\/$/, "") + "/";
+                    .replace(/\/$/, "");
 
-        dotenv.config({ path: this.rootDir + ".env" });
+        dotenv.config({ path: this.rootDir + "/.env" });
 
         this.openaiModel = this.getEnvString("OPENAI_MODEL", "gpt-3.5-turbo");
         this.openaiApiKey = this.getEnvString("OPENAI_API_KEY", "");
         this.chatHistory = this.getEnvInt("CHAT_HISTORY", 10);
-        this.chatHistoryFile = this.getEnvString("CHAT_HISTORY_FILE", "history.yaml");
+        this.chatHistoryFile = this.getEnvString("CHAT_HISTORY_FILE", this.rootDir + "/result/history.yaml");
         this.chatSystemRole = this.getEnvString("CHAT_SYSTEM_ROLE", "");
         this.chatTemperature = this.getEnvFloat("CHAT_TEMPERATURE", 0.3);
+        this.resultPath = this.getEnvString("RESULT_PATH", this.rootDir + "/result");
     }
 
-    getEnvString(key:string, defaultValue:string): string {
+    private getEnvString(key:string, defaultValue:string): string {
         let value = process.env[key];
         if(value) {
             // 置換
@@ -39,7 +41,7 @@ export class OacEnv {
         }
     }
 
-    getEnvInt(key:string, defaultValue:number): number {
+    private getEnvInt(key:string, defaultValue:number): number {
         const value = process.env[key];
         if(value) {
             return Number.parseInt(value);
@@ -49,7 +51,7 @@ export class OacEnv {
         }
     }
 
-    getEnvFloat(key:string, defaultValue:number): number {
+    private getEnvFloat(key:string, defaultValue:number): number {
         const value = process.env[key];
         if(value) {
             return Number.parseFloat(value);

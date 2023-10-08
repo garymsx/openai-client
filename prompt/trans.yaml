@@ -1,0 +1,7 @@
+model: gpt-3.5-turbo
+temperature: 0.0
+messages:
+- role: user
+  content: |
+    以下のテキストが日本語であれば英語に翻訳してください。ただし、すべて英語のテキストの場合は日本語にしてください。
+    ${input}
