@@ -8,3 +8,7 @@ export type OacMessage = {
     role: OacRole,
     content: string
 };
+
+export type OacMessages = {
+    messages: OacMessage[],
+};

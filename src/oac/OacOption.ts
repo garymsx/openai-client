@@ -5,7 +5,9 @@ export enum OacCommand {
     Save = "save",
     Prompt = "prompt",
     Chat = "chat",
-    Finetuning = "ft",
+    Finetuning = "finetuning",
+    Models = "models",
+    Files = "files",
 }
 
 export class OacOption {
@@ -21,6 +23,8 @@ export class OacOption {
     resultPath:string | undefined;
     input:string | undefined;
     output:string | undefined;
+    fid:string | undefined;
+    delete:boolean = false;
 
     constructor() {
         const env = new OacEnv();

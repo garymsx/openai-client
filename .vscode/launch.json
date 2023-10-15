@@ -13,14 +13,27 @@
             ],
             "program": "${workspaceFolder}/src/index.ts",
             "args": [
-                // "chat",
-                // "おはよう",
-                "prompt",
+                "chat",
+                "フランスの首都は何ですか？",
+
+                // "prompt",
                 // "entity",
                 // "./sample/address.ddl",
-                "trans",
-                "--input=README.md",
-                "--output=./en/README.md",
+
+                // "prompt",
+                // "trans",
+                // "--input=README.md",
+                // "--output=./en/README.md",
+
+                // "finetuning",
+
+                // "finetuning",
+                // "./sample/fineTuning.yaml",
+
+                // "models",
+
+                // "files",
+
                 "--debug",
             ],
             "preLaunchTask": "build",
