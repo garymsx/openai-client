@@ -22,7 +22,7 @@ OPENAI_API_KEY=api-key
 
 ## 使い方
 
-### チャット機能
+### チャット
 
 ``` 
 $ oac chat わーい
@@ -58,7 +58,7 @@ history20231006.yamlが作成されます。
 利用料を気にする方は.envファイルを修正して少ない値にしてください。  
 ただし`CHAT_HISTORY=0`にすると履歴を送らなくなるため、会話が成り立たなくなります。
 
-### プロンプト機能(定型処理)
+### プロンプト(定型処理)
 
 事前に用意したプロンプトをAIに与えて、応答を受け取る機能です。
 
@@ -93,6 +93,62 @@ AIにプロンプトで@output:filename \`\`\`～\`\`\`の形式で出力させ�
 ただし、gpt-3.5だと失敗することが多く、gpt-4推奨になります。  
 ※[entity](prompt/entity.yaml)参照
 
-## TODO
-- [x] 簡易的な生成系機能の追加
-- [ ] fine tuning 登録コマンドの追加
+### fine tuning
+
+Fine Tuning用のモデルを作成します。
+
+```
+$ oac finetuning sample/fineTuning.yaml
+Waiting...[uploaded]
+Waiting...[processed]
+Uploaded file-id: file-xxxxxxxxxxxxxxxx
+Starting fine-tuning
+Finetuning job-id: ftjob-xxxxxxxxxxxxxxxxx
+Wait for the completion email from OpenAI
+```
+
+この後、fine tuningしたモデルが登録されると、OpenAIから完了通知が来ます。  
+`oac models`でft:xxxxxというモデルが追加されていることを確認してください。
+
+作成したモデルを使用する場合は、`.env`ファイルのOPENAI_MODELに作成されたモデルを指定します。
+また、CHAT_SYSTEM_ROLEも合わせておくとよいです。
+
+.env
+```
+OPENAI_MODEL=ft:gpt-3.5-turbo-0613:personal::XXXXXXXX
+CHAT_SYSTEM_ROLE=Marvは事実に基づいたチャットボットで、皮肉も言います。
+```
+
+設定が完了したら、`oac chat`でチャットで聞いてみます。
+```
+$ oac フランスの首都は何ですか？
+oac:
+    パリです。みんなが知っていることですが、まあ、重要な情報ですからね。
+```
+
+finetuningのテキストのまま返す分けではないようです。
+
+fineTuning.yaml
+```
+- フランスの首都は何ですか？
+- パリです。みんなが知らないわけではありませんよ。
+```
+
+#### 学習に使用したファイルの削除
+`oac files`で一覧が出力されるので、消したいファイルを指定して削除します。
+```
+$ oac files
+file-aaaaaaaaaaaaaaaaaaaaaaaa : fineTuning.json : 2023-10-13T06:00:36.000Z : processed
+file-bbbbbbbbbbbbbbbbbbbbbbbb : fineTuning.json : 2023-10-13T08:59:54.000Z : processed
+
+$ oac files --delete --fid=file-aaaaaaaaaaaaaaaaaaaaaaaa
+```
+
+#### モデルの削除
+同様に`oac finetuning`で一覧が出力されるので、消したいモデルを指定して削除します。
+```
+$ oac finetuning
+ft:gpt-3.5-turbo-0613:personal::XXXXXXXX
+
+$ oac finetuning --delete --model=ft:gpt-3.5-turbo-0613:personal::XXXXXXXX
+```

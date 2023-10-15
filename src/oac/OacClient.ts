@@ -1,21 +1,26 @@
 import OpenAI from "openai";
 import * as Fs from "fs";
 import * as Path from "path";
-import { OacMessage, OacRole } from "./OacMessage";
+import { OacMessage, OacMessages, OacRole } from "./OacMessage";
 import { OacOption } from "./OacOption";
 import { OacEnv } from "./OacEnv";
 import * as Yaml from "js-yaml";
 import { OacPrompt } from "./OacPrompt";
+import { OacFineTuningData } from "./OacFineTuning";
+import fetch from "node-fetch";
+import { OacLog } from "./OacLog";
 
 export class OacClient {
+    option: OacOption;
     env: OacEnv = new OacEnv();
+    log: OacLog;
 
-    async chat(option:OacOption) {
-        if(!option.silent) {
-            console.log("you:");
-            console.log("    " + option.message);
-        }
+    constructor(option: OacOption) {
+        this.option = option;
+        this.log = new OacLog(option);
+    }
 
+    async chat() {
         // 履歴を取得
         const history = this.loadHistory();
 
@@ -46,20 +51,20 @@ export class OacClient {
             // ユーザーの発言を追加
             messages.push({
                 role: OacRole.User,
-                content: option.message
+                content: this.option.message
             });
 
             return messages;
         }
 
-        const result = await this.completions(createMessage(), option.model, this.env.chatTemperature, option);
+        const result = await this.completions(createMessage(), this.option.model, this.env.chatTemperature);
 
         // TODO: 消費したトークン数を表示する
 
         // ユーザーの発言を保存
         history.push({
             role: OacRole.User,
-            content: option.message!
+            content: this.option.message!
         });
 
         // 応答を保存
@@ -69,33 +74,38 @@ export class OacClient {
         });
 
         // デバッグ時は履歴を保存しない
-        if(!option.debug) {
+        if(!this.option.debug) {
             this.saveHistory(history);
         }
 
         return result;
     }
 
-    clear(option:OacOption) {
+    clear() {
         this.saveHistory([]);
     }
 
-    save(option:OacOption) {
+    save() {
+        if(!this.option.savePath) {
+            // ファイルを指定してください
+            throw new Error("Please specify a file");
+        }
+
         const history = this.loadHistory();
-        this.saveHistory(history, option.savePath!);
+        this.saveHistory(history, this.option.savePath!);
     }
 
-    async prompt(option:OacOption) {
+    async prompt() {
         let result = "";
 
         // APIを実行すべきか
         let exec = false;
 
         // output指定がある場合は、APIを呼べるかどうかを判定する
-        if(option.input && option.output) {
-            const propmtStat = Fs.statSync(option.prompt!);
-            const inputStat =  Fs.existsSync(option.input) ? Fs.statSync(option.input) : undefined;
-            const outputStat = Fs.existsSync(option.output) ? Fs.statSync(option.output) : undefined;
+        if(this.option.input && this.option.output) {
+            const propmtStat = Fs.statSync(this.option.prompt!);
+            const inputStat =  Fs.existsSync(this.option.input) ? Fs.statSync(this.option.input) : undefined;
+            const outputStat = Fs.existsSync(this.option.output) ? Fs.statSync(this.option.output) : undefined;
             if(outputStat && inputStat) {
                 // inputがoutputより新しい場合はAPIを実行する
                 if(outputStat < inputStat) exec = true;
@@ -112,7 +122,7 @@ export class OacClient {
 
             if(!exec) {
                 // APIを実行する必要なし
-                const buffer = await Fs.readFileSync(option.output);
+                const buffer = await Fs.readFileSync(this.option.output);
                 result = buffer.toString();
             }
         }
@@ -123,7 +133,8 @@ export class OacClient {
         if(exec) {
             // API実行
             const messages: any[] = [];
-            const prompt = this.loadPrompt(option);
+            const prompt = this.loadPrompt();
+
             prompt.messages.forEach(message => {
                 messages.push({
                     role: message.role,
@@ -132,9 +143,8 @@ export class OacClient {
             });
             result = await this.completions(
                 messages,
-                prompt.model ? prompt.model : option.model,
-                prompt.temperature ? prompt.temperature : option.temperature,
-                option
+                prompt.model ? prompt.model : this.option.model,
+                prompt.temperature ? prompt.temperature : this.option.temperature
             );
 
             // resultから@outputコマンドを抽出する
@@ -147,7 +157,7 @@ export class OacClient {
                     const filename = match2?.groups?.filename!;
                     const source = match2?.groups?.sorce!;
 
-                    let outputPath = option.resultPath!;
+                    let outputPath = this.option.resultPath!;
                     if(!Fs.existsSync(outputPath)) {
                         Fs.mkdirSync(outputPath, {recursive: true});
                     }
@@ -157,25 +167,129 @@ export class OacClient {
                 }
             }
 
-            if(option.output) {
+            if(this.option.output) {
                 // 先頭と最後に```があった場合は削除する
                 result = result
                     .replace(/^```/, "")
                     .replace(/```$/, "");
-                const parentDir = Path.dirname(option.output);
+                const parentDir = Path.dirname(this.option.output);
                 if(!Fs.existsSync(parentDir)) {
                     Fs.mkdirSync(parentDir, {recursive: true});
                 }
-                Fs.writeFileSync(option.output, result);
+                Fs.writeFileSync(this.option.output, result);
             }
 
         }
     }
 
-    private async completions(messages: any[], model:string, temperature:number, option:OacOption): Promise<string> {
-        const openai = new OpenAI({
-            apiKey: this.env.openaiApiKey,
-        });
+    async fineTuning() {
+        const openai = this.createOpenAI();
+
+        // 削除
+        if(this.option.delete) {
+            if(this.option.model) {
+                // TODO:openai.models.delete()が動作しないので、fetchで代用している
+                const result = await fetch(`https://api.openai.com/v1/models/${this.option.model}`, {
+                    method: "DELETE",
+                    headers: {
+                      "Authorization": `Bearer ${this.env.openaiApiKey}`
+                    }
+                })
+                // ${this.option.model}の削除依頼を出しました
+                this.log.print(`Delete request for ${this.option.model}`);
+            }
+            else {
+                this.log.print(`--model is not specified`);
+            }
+        }
+        // 作成
+        else if(this.option.input) {
+            const data = this.loadFineTuning();
+            const jsonFile = this.saveToJson(data);
+            if(!this.option.fid) {
+                //const stream: Fs.ReadStream = require('stream').Readable.from(jsonFile);
+                let file = await openai.files.create({
+                    file: Fs.createReadStream(jsonFile),
+                    purpose: 'fine-tune',
+                });
+        
+                while (true) {
+                    file = await openai.files.retrieve(file.id);
+                    this.log.print(`Waiting...[${file.status}]`);
+        
+                    if (file.status === 'processed') {
+                        break;
+                    }
+                    else {
+                        await new Promise((resolve) => setTimeout(resolve, 1000));
+                    }
+                }        
+                this.log.print(`Uploaded file-id: ${file.id}`);
+                this.option.fid = file.id;
+            }
+    
+            if(!this.option.model) this.option.model = data.model;
+    
+            this.log.print(`Starting finetuning`);
+            let fineTune = await openai.fineTuning.jobs.create({
+                    model: this.option.model,
+                    training_file: this.option.fid
+                }
+            );
+            this.log.print(`Finetuning job-id: ${fineTune.id}`);
+    
+            // OpenAIから完了メールが届くのを待ちます
+            this.log.print("Wait for the completion email from OpenAI");
+        }
+        // 一覧
+        else {
+            this.models(/^ft:.*/);
+        }
+    }
+
+    async models(filter?:RegExp) {
+        const openai = this.createOpenAI();
+        const list = await openai.models.list();
+        const result: string[] = [];
+
+        for(const model of list.data) {
+            result.push(model.id);
+        }
+
+        result.sort();
+
+        for(const model of result) {
+            if(!filter || filter.test(model)) {
+                this.log.print(model);
+            }
+        }
+    }
+
+    async files() {
+        const openai = this.createOpenAI();
+        const files = await openai.files.list();
+
+        if(this.option.delete) {
+            if(this.option.fid) {
+                await openai.files.del(this.option.fid);
+                this.log.print(`File ${this.option.fid} has been deleted`);
+                return;
+            }
+            else {
+                throw new Error(`--fid is not specified`);
+            }
+        }
+
+        for(const model of files.data) {
+            // unixtimeを日付に変換する
+            const date = new Date(model.created_at * 1000);
+            this.log.print(`${model.id} : ${model.filename} : ${date.toISOString()} : ${model.status} `);
+        }
+
+    }
+
+    private async completions(messages: any[], model:string, temperature:number): Promise<string> {
+        const openai = this.createOpenAI();
 
         const response = await openai.chat.completions.create({
             model: model,
@@ -184,46 +298,42 @@ export class OacClient {
             stream: true,
         }); 
 
-        if(!option.silent) {
-            console.log("oac:");
+        if(this.option.debug) {
+            this.log.info(`model: ${this.option.model}`);
+            this.log.info(`temperature: ${this.option.temperature}`);
+            if(this.option.message) {
+                this.log.info("you:");
+                this.log.info("    " + this.option.message);
+            }
         }
+
+        this.log.info("oac:");
+
         let result:string[] = [];
-        let line:string[] = [];       // 行表示用
+        let top = true; // 行頭かどうか
         for await (const part of response) {
             const buffer = part.choices[0]?.delta?.content || '';
 
             // bufferから１文字ずつ取り出してfor ofで処理する
             for (const ch of buffer) {
                 // 行頭はインデント
-                if(line.length === 0) process.stdout.write("    ");
-
-                // debug時は標準出力に出力しない(VSCodeのdebugで出力できない)
-                if(!option.debug && !option.silent) process.stdout.write(ch);
-
-                if(ch === "\n") {
-                    if(option.debug && !option.silent) {
-                        // 改行を追加する前にバッファを出力する
-                        console.log(`    ${line.join("")}`);
-                    }
-                    line.push("\n");
-                    result.push(line.join(""));
-                    line = [];
+                if(top) {
+                    this.log.put("    ");
+                    top = false;
                 }
-                else {
-                    line.push(ch);
-                }
+
+                this.log.put(ch);
+                result.push(ch);
+
+                if(ch === "\n") top = true;
             }
         }
 
-        // 残りを出力
-        if(line.length > 0) {
-            line.push("\n");
-            result.push(line.join(""));
-            if(option.debug && !option.silent) {
-                console.log(`    ${line.join("")}`);
-            }
+        this.log.put("\n");
+
+        if(this.option.silent) {
+            this.log.print(result.join(""));
         }
-        process.stdout.write("\n");
 
         return result.join("");
     }
@@ -247,8 +357,8 @@ export class OacClient {
         Fs.writeFileSync(path, yaml);
     }
 
-    private loadPrompt(option:OacOption): OacPrompt {
-        const yaml = Fs.readFileSync(option.prompt!, "utf8");
+    private loadPrompt(): OacPrompt {
+        const yaml = Fs.readFileSync(this.option.prompt!, "utf8");
         const prompt = Yaml.load(yaml) as OacPrompt;
         
         // パラメータの置換を行う
@@ -268,26 +378,26 @@ export class OacClient {
                 if(nameIndex) index = parseInt(nameIndex) - 1;
 
                 if(name === "file") {
-                    if(!option.params[index]) {
-                        throw new Error(`file${index}が指定されていません`);
+                    if(!this.option.params[index]) {
+                        throw new Error(`file${index} is not specified`);
                     }
-                    const file = option.params[index];
+                    const file = this.option.params[index];
                     // fileをテキストファイルとして読み込みstringに変換する
                     const text = Fs.readFileSync(file, "utf8");
                     content = content.replace(fullName, text);
                 }
                 else if(name === "input") {
-                    if(!option.input) {
-                        throw new Error(`--inputが指定されていません`);
+                    if(!this.option.input) {
+                        throw new Error(`--input is not specified`);
                     }
-                    const text = Fs.readFileSync(option.input, "utf8");
+                    const text = Fs.readFileSync(this.option.input, "utf8");
                     content = content.replace(`\$\{input\}`, text);
                 }
                 else if(name === "param") {
-                    if(!option.params[index]) {
-                        throw new Error(`param${index}が指定されていません`);
+                    if(!this.option.params[index]) {
+                        throw new Error(`param${index} is not specified`);
                     }
-                    const param = option.params[index];
+                    const param = this.option.params[index];
                     content = content.replace(fullName, param);
                 }
                 message.content = content;
@@ -295,7 +405,80 @@ export class OacClient {
         });
 
         return prompt;
-
     }
 
+    /**
+     * fineTuning用のyamlファイルを読み込む
+     * @param option 
+     * @returns 
+     */
+    private loadFineTuning(): OacFineTuningData {
+        // YamlからJsonに変換する
+        const fileContents = Fs.readFileSync(this.option.input!, "utf8");
+        const data = Yaml.load(fileContents) as OacFineTuningData;
+        return data;
+    }
+
+    /**
+     * YamlからJsonに変換したファイルを作成する
+     * @param option 
+     * @returns 
+     */
+    private saveToJson(data:OacFineTuningData): string {
+        const tempPath = Path.join(this.env.tempPath, `fineTuning.json`);
+        const out:string[] = [];
+
+        const system = data.system;
+
+        // JsonはJsonの形式になっておらず、1行ごとのデータになっている
+        data.fileTuning.forEach((it) => {
+            const json:OacMessages = {
+                messages: []
+            };
+
+            // systemの発言を追加する
+            if(it.messages.system) {
+                // 先頭にsystemの発言を追加する
+                json.messages.push({
+                    role: OacRole.System,
+                    content: it.messages.system
+                });
+            }
+            else if(system) {
+                // 先頭にsystemの発言を追加する
+                json.messages.push({
+                    role: OacRole.System,
+                    content: system
+                });
+            }
+
+            while(it.messages.contents.length > 0) {
+                const user = it.messages.contents.shift()!;
+                json.messages.push({
+                    role: OacRole.User,
+                    content: user
+                });
+                const assistant = it.messages.contents.shift()!;
+                if(assistant) {
+                    json.messages.push({
+                        role: OacRole.Assistant,
+                        content: assistant
+                    });
+                }
+                else {
+                    throw new Error("There is no assistant's utterance");
+                }
+            }
+            out.push(JSON.stringify(json));
+        });
+        Fs.writeFileSync(tempPath, out.join("\n"), "utf8");
+        return tempPath
+        //return json.join("\n");
+    }
+
+    private createOpenAI(): OpenAI {
+        return new OpenAI({
+            apiKey: this.env.openaiApiKey,
+        });
+    }
 }

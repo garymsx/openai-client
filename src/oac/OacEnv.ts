@@ -11,6 +11,7 @@ export class OacEnv {
     chatSystemRole:string;
     chatTemperature:number = 0.3;
     resultPath:string;
+    tempPath:string;
 
     constructor() {
         // \を/に置換、最後の/を削除を付けたうえで"/"を付ける
@@ -27,6 +28,7 @@ export class OacEnv {
         this.chatSystemRole = this.getEnvString("CHAT_SYSTEM_ROLE", "");
         this.chatTemperature = this.getEnvFloat("CHAT_TEMPERATURE", 0.3);
         this.resultPath = this.getEnvString("RESULT_PATH", this.rootDir + "/result");
+        this.tempPath = this.getEnvString("TEMP_PATH", this.rootDir + "/temp");
     }
 
     private getEnvString(key:string, defaultValue:string): string {
