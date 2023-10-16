@@ -138,8 +138,8 @@ fineTuning.yaml
 `oac files`で一覧が出力されるので、消したいファイルを指定して削除します。
 ```
 $ oac files
-file-aaaaaaaaaaaaaaaaaaaaaaaa : fineTuning.json : 2023-10-13T06:00:36.000Z : processed
-file-bbbbbbbbbbbbbbbbbbbbbbbb : fineTuning.json : 2023-10-13T08:59:54.000Z : processed
+file-aaaaaaaaaaaaaaaaaaaaaaaa | fineTuning.json | 2023-10-13T06:00:36.000Z | processed
+file-bbbbbbbbbbbbbbbbbbbbbbbb | fineTuning.json | 2023-10-13T08:59:54.000Z | processed
 
 $ oac files --delete --fid=file-aaaaaaaaaaaaaaaaaaaaaaaa
 ```
@@ -148,7 +148,7 @@ $ oac files --delete --fid=file-aaaaaaaaaaaaaaaaaaaaaaaa
 同様に`oac finetuning`で一覧が出力されるので、消したいモデルを指定して削除します。
 ```
 $ oac finetuning
-ft:gpt-3.5-turbo-0613:personal::XXXXXXXX
+ft:gpt-3.5-turbo-0613:personal::XXXXXXXX | 2023-10-15T03:32:24.000Z
 
 $ oac finetuning --delete --model=ft:gpt-3.5-turbo-0613:personal::XXXXXXXX
 ```

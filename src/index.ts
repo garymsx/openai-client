@@ -17,7 +17,14 @@ function main() {
             arg === oac.OacCommand.Finetuning ||
             arg === oac.OacCommand.Models ||
             arg === oac.OacCommand.Files ) {
-            option.command = arg;
+            if(!option.command) {
+                option.command = arg;
+            }
+            else {
+                // すでにコマンドが指定されています
+                console.log(`Command already specified: ${option.command}`);
+                return;
+            }
         }
         else if(arg === "--debug") {
             option.debug = true;
@@ -37,11 +44,17 @@ function main() {
         else if(arg.startsWith("--fid=")) {
             option.fid = arg.replace(/^--fid=/, "");
         }
+        else if(arg.startsWith("--jid=")) {
+            option.jid = arg.replace(/^--jid=/, "");
+        }
         else if(arg.startsWith("--temperature=")) {
             option.temperature = parseFloat(arg.replace(/^--temperature=/, ""));
         }
         else if(arg === "--silent") {
             option.silent = true;
+        }
+        else if(arg === "--cancel") {
+            option.cancel = true;
         }
         else if(arg === "--delete") {
             option.delete = true;
