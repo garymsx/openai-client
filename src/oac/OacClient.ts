@@ -136,11 +136,14 @@ export class OacClient {
             const prompt = this.loadPrompt();
 
             prompt.messages.forEach(message => {
+                this.log.info(message.role + ":");
+                this.log.info(message.content);
                 messages.push({
                     role: message.role,
                     content: message.content
                 });
             });
+
             result = await this.completions(
                 messages,
                 prompt.model ? prompt.model : this.option.model,
@@ -202,6 +205,14 @@ export class OacClient {
                 this.log.print(`--model is not specified`);
             }
         }
+        else if(this.option.cancel) {
+            if(this.option.jid) {
+                openai.fineTuning.jobs.cancel(this.option.jid);
+            }
+            else {
+                this.log.print(`--jid is not specified`);
+            }
+        }
         // 作成
         else if(this.option.input) {
             const data = this.loadFineTuning();
@@ -253,7 +264,13 @@ export class OacClient {
         const result: string[] = [];
 
         for(const model of list.data) {
-            result.push(model.id);
+            const date = new Date(model.created * 1000);
+            if(model.owned_by.startsWith("user-")) {
+                result.push(`${model.id} | ${date.toISOString()}`);
+            }
+            else {
+                result.push(`${model.id}`);
+            }
         }
 
         result.sort();
@@ -283,7 +300,7 @@ export class OacClient {
         for(const model of files.data) {
             // unixtimeを日付に変換する
             const date = new Date(model.created_at * 1000);
-            this.log.print(`${model.id} : ${model.filename} : ${date.toISOString()} : ${model.status} `);
+            this.log.print(`${model.id} | ${model.filename} | ${date.toISOString()} | ${model.status} `);
         }
 
     }
@@ -366,42 +383,76 @@ export class OacClient {
             let content = message.content;
 
             // ${変数名}を正規表現で取り出す
-            const regex = /\$\{(file|param|input)([0-9]*)\}/g;
+            const regex = /(\$\{(file|param|input)([0-9]*)\}|(.|\n))/gm;
+            const buffer:string[] = [];
 
             // パラメータを置換する
             let match;
-            while(match = regex.exec(content)) {
-                const name = match[1];
-                const nameIndex = match[2];
-                const fullName = "${" + match[1] + (match[2] ? match[2] : "") + "}";
-                let index:number = 0;
-                if(nameIndex) index = parseInt(nameIndex) - 1;
+            while((match = regex.exec(content)) !== null) {
+                const token = match[1];
+                const regex2 = /\$\{(file|param|input)([0-9]*)\}/;
+                const match2 = regex2.exec(token);
+                if(match2) {
+                    const param = match2[1];
+                    const index = parseInt(match2[2]) - 1;
+                    if(param === "file") {
+                        if(!this.option.params[index]) {
+                            throw new Error(`file${index} is not specified`);
+                        }
+                        const file = this.option.params[index];
+                        // fileをテキストファイルとして読み込みstringに変換する
+                        const text = Fs.readFileSync(file, "utf8");
+                        buffer.push(text);
+                    }
+                    else if(param === "input") {
+                        if(!this.option.input) {
+                            throw new Error(`--input is not specified`);
+                        }
+                        const text = Fs.readFileSync(this.option.input, "utf8");
+                        buffer.push(text);
+                    }
+                    else if(param === "param") {
+                        if(!this.option.params[index]) {
+                            throw new Error(`param${index} is not specified`);
+                        }
+                        const param = this.option.params[index];
+                        buffer.push(param);
+                    }
+                }
+                else {
+                    buffer.push(token);
+                }
+                
+                // const nameIndex = match[2];
+                // const fullName = "${" + match[1] + (match[2] ? match[2] : "") + "}";
+                // let index:number = 0;
+                // if(nameIndex) index = parseInt(nameIndex) - 1;
 
-                if(name === "file") {
-                    if(!this.option.params[index]) {
-                        throw new Error(`file${index} is not specified`);
-                    }
-                    const file = this.option.params[index];
-                    // fileをテキストファイルとして読み込みstringに変換する
-                    const text = Fs.readFileSync(file, "utf8");
-                    content = content.replace(fullName, text);
-                }
-                else if(name === "input") {
-                    if(!this.option.input) {
-                        throw new Error(`--input is not specified`);
-                    }
-                    const text = Fs.readFileSync(this.option.input, "utf8");
-                    content = content.replace(`\$\{input\}`, text);
-                }
-                else if(name === "param") {
-                    if(!this.option.params[index]) {
-                        throw new Error(`param${index} is not specified`);
-                    }
-                    const param = this.option.params[index];
-                    content = content.replace(fullName, param);
-                }
-                message.content = content;
+                // if(token === "file") {
+                //     if(!this.option.params[index]) {
+                //         throw new Error(`file${index} is not specified`);
+                //     }
+                //     const file = this.option.params[index];
+                //     // fileをテキストファイルとして読み込みstringに変換する
+                //     const text = Fs.readFileSync(file, "utf8");
+                //     //content = content.replace(fullName, text);
+                // }
+                // else if(token === "input") {
+                //     if(!this.option.input) {
+                //         throw new Error(`--input is not specified`);
+                //     }
+                //     const text = Fs.readFileSync(this.option.input, "utf8");
+                //     //content = content.replace(`\$\{input\}`, text);
+                // }
+                // else if(token === "param") {
+                //     if(!this.option.params[index]) {
+                //         throw new Error(`param${index} is not specified`);
+                //     }
+                //     const param = this.option.params[index];
+                //     //content = content.replace(fullName, param);
+                // }
             }
+            message.content = buffer.join("");
         });
 
         return prompt;
@@ -425,13 +476,13 @@ export class OacClient {
      * @returns 
      */
     private saveToJson(data:OacFineTuningData): string {
-        const tempPath = Path.join(this.env.tempPath, `fineTuning.json`);
+        const tempPath = Path.join(this.env.tempPath, `fineTuning.jsonl`);
         const out:string[] = [];
 
         const system = data.system;
 
-        // JsonはJsonの形式になっておらず、1行ごとのデータになっている
-        data.fileTuning.forEach((it) => {
+        // jsonl形式
+        data.fineTuning.forEach((it) => {
             const json:OacMessages = {
                 messages: []
             };

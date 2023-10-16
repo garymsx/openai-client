@@ -24,7 +24,9 @@ export class OacOption {
     input:string | undefined;
     output:string | undefined;
     fid:string | undefined;
+    jid:string | undefined;
     delete:boolean = false;
+    cancel:boolean = false;
 
     constructor() {
         const env = new OacEnv();

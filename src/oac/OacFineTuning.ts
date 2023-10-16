@@ -8,9 +8,9 @@ export type OacFineTuningMessage = {
 export type OacFineTuning = {
     messages: OacFineTuningMessage;
 };
-  
+
 export type OacFineTuningData = {
     model: string;
     system: string;
-    fileTuning: OacFineTuning[];
+    fineTuning: OacFineTuning[];
 };
