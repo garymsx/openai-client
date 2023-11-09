@@ -124,8 +124,8 @@ function main() {
         console.log("      [message]");
         console.log("      chat [message]");
         console.log("      save [filename]");
-        console.log("      pm   [prompt] [parameter]...");
-        console.log("      pm   [prompt] --input=[filename] --output=[filename] ");
+        console.log("      prompt [prompt] [parameter]...");
+        console.log("      prompt [prompt] --input=[filename] --output=[filename] ");
         console.log("      clear");
         console.log("      finetuning [filename]");
         console.log("      finetuning --delete --model=[model]");
