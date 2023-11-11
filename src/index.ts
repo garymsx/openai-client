@@ -13,6 +13,7 @@ function main() {
         if(arg === oac.OacCommand.Chat ||
             arg === oac.OacCommand.Save ||
             arg === oac.OacCommand.Clear ||
+            arg === oac.OacCommand.Image ||
             arg === oac.OacCommand.Prompt ||
             arg === oac.OacCommand.Finetuning ||
             arg === oac.OacCommand.Models ||
@@ -50,6 +51,37 @@ function main() {
         else if(arg.startsWith("--temperature=")) {
             option.temperature = parseFloat(arg.replace(/^--temperature=/, ""));
         }
+        else if(arg.startsWith("--quality=")) {
+            const quality = arg.replace(/^--quality=/, "");
+            if(quality != 'standard' && quality != 'hd') {
+                // クオリティ指定が不正です
+                console.log(`Invalid quality: ${quality} (standard, hd)`);
+                return;
+            }
+            option.quality = quality;
+        }
+        else if(arg.startsWith("--size=")) {
+            const size = arg.replace(/^--size=/, "");
+            if( size != '256x256' && 
+                size != '512x512' &&
+                size != '1024x1024' &&
+                size != '1792x1024' &&
+                size != '1024x1792') {
+                // サイズ指定が不正です
+                console.log(`Invalid size: ${size} (256x256, 512x512, 1024x1024, 1792x1024, 1024x1792)`);
+                return;
+            }
+            option.size = size;
+        }
+        else if(arg.startsWith("--n=")) {
+            const n = parseInt(arg.replace(/^--n=/, ""));
+            if(n < 1 || n > 10) {
+                // 画像は10枚までです
+                console.log(`Invalid n: ${n} (1-10)`);
+                return;
+            }
+            option.n = n;
+        }
         else if(arg === "--silent") {
             option.silent = true;
         }
@@ -85,6 +117,9 @@ function main() {
                 else {
                     option.params.push(arg);
                 }
+            }
+            else if(option.command === oac.OacCommand.Image) {
+                messages.push(arg);
             }
             else if(option.command === oac.OacCommand.Finetuning) {
                 if(!option.input) {
@@ -126,6 +161,8 @@ function main() {
         console.log("      save [filename]");
         console.log("      prompt [prompt] [parameter]...");
         console.log("      prompt [prompt] --input=[filename] --output=[filename] ");
+        console.log("      image [message] --size=256x256|512x512|1024x1024|1792x1024|1024x1792 --quality=standard|hd");
+        console.log("                      --models=dall-e-2 --n=[n] (dall-e-2 only)");
         console.log("      clear");
         console.log("      finetuning [filename]");
         console.log("      finetuning --delete --model=[model]");
@@ -146,6 +183,13 @@ function main() {
             throw new Error(`File does not exist: ${option.input}`);
         }
 
+        // 出力先
+        if(option.resultPath) {
+            if(!Fs.existsSync(option.resultPath)) {
+                Fs.mkdirSync(option.resultPath, {recursive: true});
+            }
+        }
+
         const client = new oac.OacClient(option);
         if(option.command === oac.OacCommand.Chat) {
             if(option.message) {
@@ -164,6 +208,12 @@ function main() {
         }
         else if(option.command === oac.OacCommand.Prompt) {
             client.prompt();
+        }
+        else if(option.command === oac.OacCommand.Image) {
+            if(option.model != "dall-e-2") {
+                option.model = "dall-e-3";
+            }
+            client.image();
         }
         else if(option.command === oac.OacCommand.Finetuning) {
             client.fineTuning();

@@ -108,13 +108,13 @@ export class OacClient {
             const outputStat = Fs.existsSync(this.option.output) ? Fs.statSync(this.option.output) : undefined;
             if(outputStat && inputStat) {
                 // inputがoutputより新しい場合はAPIを実行する
-                if(outputStat < inputStat) exec = true;
+                if(outputStat.mtime < inputStat.mtime) exec = true;
                 // promptが新しい場合はAPIを実行する
-                if(outputStat < propmtStat || inputStat < propmtStat) exec = true;
+                if(outputStat.mtime < propmtStat.mtime || inputStat.mtime < propmtStat.mtime) exec = true;
             }
             else if(outputStat) {
                 // promptが新しい場合はAPIを実行する
-                if(outputStat < propmtStat) exec = true;
+                if(outputStat.mtime < propmtStat.mtime) exec = true;
             }
             else {
                 exec = true;
@@ -160,12 +160,7 @@ export class OacClient {
                     const filename = match2?.groups?.filename!;
                     const source = match2?.groups?.sorce!;
 
-                    let outputPath = this.option.resultPath!;
-                    if(!Fs.existsSync(outputPath)) {
-                        Fs.mkdirSync(outputPath, {recursive: true});
-                    }
-                    let outputFile = Path.join(outputPath, filename);
-
+                    let outputFile = Path.join(this.option.resultPath!, filename);
                     Fs.writeFileSync(outputFile, source);
                 }
             }
@@ -303,6 +298,44 @@ export class OacClient {
             this.log.print(`${model.id} | ${model.filename} | ${date.toISOString()} | ${model.status} `);
         }
 
+    }
+
+    async image() {
+        const openai = this.createOpenAI();
+        const result = await openai.images.generate({
+            model: this.option.model!,
+            prompt: this.option.message!,
+            size: this.option.size!,
+            quality: this.option.quality!,
+            n:this.option.n,
+        });
+
+        result.data.forEach((it, index) => {
+            const url = it.url;
+            if(url) {
+                // 現在時刻を文字列にする
+                const now = new Date();
+                // yyyymmddhhmmss形式にする
+                const nowString = now.getFullYear().toString().padStart(4, "0") +
+                                  (now.getMonth() + 1).toString().padStart(2, "0") +
+                                  now.getDate().toString().padStart(2, "0") +
+                                  now.getHours().toString().padStart(2, "0") +
+                                  now.getMinutes().toString().padStart(3, "0") +
+                                  now.getSeconds().toString().padStart(2, "0");
+                const filename = Path.join(this.option.resultPath!, `image${nowString}-${index + 1}.png`);
+                // URLをダウンロードする
+                this.log.print(`download url: ${url}`);
+                this.log.print(`save file: ${filename}`);
+                const response = fetch(url);
+                const buffer = response.then(it => it.buffer());
+                const file = buffer.then(
+                    it => Fs.writeFileSync(
+                        filename,
+                        it
+                    )
+                );
+            }
+        });
     }
 
     private async completions(messages: any[], model:string, temperature:number): Promise<string> {

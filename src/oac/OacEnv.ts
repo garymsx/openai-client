@@ -27,7 +27,7 @@ export class OacEnv {
         this.chatHistoryFile = this.getEnvString("CHAT_HISTORY_FILE", this.rootDir + "/result/history.yaml");
         this.chatSystemRole = this.getEnvString("CHAT_SYSTEM_ROLE", "");
         this.chatTemperature = this.getEnvFloat("CHAT_TEMPERATURE", 0.3);
-        this.resultPath = this.getEnvString("RESULT_PATH", this.rootDir + "/result");
+        this.resultPath = this.getEnvString("RESULT_PATH", "");
         this.tempPath = this.getEnvString("TEMP_PATH", this.rootDir + "/temp");
     }
 

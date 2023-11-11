@@ -93,6 +93,17 @@ AIにプロンプトで@output:filename \`\`\`～\`\`\`の形式で出力させ�
 ただし、gpt-3.5だと失敗することが多く、gpt-4推奨になります。  
 ※[entity](prompt/entity.yaml)参照
 
+### generate image
+
+画像を生成します。
+
+```
+$ oac image 白いシャム猫
+
+download url: https://oaidalleapiprodscus.blob.core.windows.net/private/xxxxxxxxxx
+save file: result\image2023xxxxxxxxxx-1.png
+```
+
 ### fine tuning
 
 Fine Tuning用のモデルを作成します。

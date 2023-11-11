@@ -4,6 +4,7 @@ export enum OacCommand {
     Clear = "clear",
     Save = "save",
     Prompt = "prompt",
+    Image = "image",
     Chat = "chat",
     Finetuning = "finetuning",
     Models = "models",
@@ -27,6 +28,9 @@ export class OacOption {
     jid:string | undefined;
     delete:boolean = false;
     cancel:boolean = false;
+    quality:'standard' | 'hd' = "standard";
+    n = 1;
+    size:'256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792' | null = "1024x1024";
 
     constructor() {
         const env = new OacEnv();
@@ -34,6 +38,7 @@ export class OacOption {
         this.model = env.openaiModel;
         this.temperature = env.chatTemperature
         this.resultPath = env.resultPath
+
     }
 }
 

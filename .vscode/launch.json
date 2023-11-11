@@ -25,6 +25,12 @@
                 // "--input=README.md",
                 // "--output=./en/README.md",
 
+                // "image",
+                // "a white siamese cat",
+                // "--size=1024x1024",
+                // "--quality=hd",
+                // "--n=1",
+
                 // "finetuning",
 
                 // "finetuning",
